@@ -1,19 +1,29 @@
 import { observer } from "mobx-react-lite";
-import React, { ChangeEvent, useState } from "react";
+import React, { ChangeEvent, useEffect, useState } from "react";
+import { Link, useHistory, useParams } from "react-router-dom";
 import { Button, Form, Segment } from "semantic-ui-react";
+import LoadingComponent from "../../../app/layout/LoadingComponent";
 import { useStore } from "../../../app/stores/store";
+import { v4 as uuid } from "uuid";
 
 export default observer(function ActivityForm() {
   const { activityStore } = useStore();
   const {
-    selectedActivity,
-    CloseForm,
     createActivity,
     updateActivity,
     loading,
+    loadActivity,
+    loadingInitial,
   } = activityStore;
 
-  const initialState = selectedActivity ?? {
+  const { id } = useParams<{ id: string }>();
+  const history = useHistory();
+
+  useEffect(() => {
+    if (id) loadActivity(id).then((activity) => setActivity(activity!));
+  }, [id, loadActivity]);
+
+  const initialState = {
     id: "",
     title: "",
     date: "",
@@ -26,7 +36,16 @@ export default observer(function ActivityForm() {
   const [activity, setActivity] = useState(initialState);
 
   function handleSubmit() {
-    activity.id ? updateActivity(activity) : createActivity(activity);
+    if (activity.id.length === 0) {
+      activity.id = uuid();
+      createActivity(activity).then(() => {
+        history.push(`/activities/${activity.id}`);
+      });
+    } else {
+      updateActivity(activity).then(() => {
+        history.push(`/activities/${activity.id}`);
+      });
+    }
   }
 
   function handleInputChange(
@@ -35,6 +54,8 @@ export default observer(function ActivityForm() {
     const { name, value } = event.target;
     setActivity({ ...activity, [name]: value });
   }
+
+  if (loadingInitial) return <LoadingComponent />;
 
   return (
     <Segment clearing>
@@ -84,7 +105,8 @@ export default observer(function ActivityForm() {
           type="submit"
         />
         <Button
-          onClick={() => CloseForm()}
+          as={Link}
+          to="/activities"
           floated="right"
           content="Cancel"
           type="button"
